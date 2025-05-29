@@ -151,7 +151,7 @@ class _NewTurnState extends State<NewTurn> {
             .toIso8601String(),
         'role'      : selectedRole,
         'piscina'   : selectedPiscina,
-        'pay'       : hourlyRate,          // 👈  salva la tariffa oraria, NON il totale!
+        'pay': await _calculateTotalPay(),
         'certificates': selectedCertificates,
         'user_id'   : FirebaseAuth.instance.currentUser!.uid,
       };

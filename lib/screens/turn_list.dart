@@ -2,7 +2,6 @@
 import 'package:flutter/material.dart';
 import 'package:pool_app/models/turn.dart';
 import 'package:pool_app/functions/fetch_turni.dart';
-import 'package:pool_app/functions/filtered_total pay.dart';
 import 'package:pool_app/widget/filter_widgets/filters_drawer.dart';
 import 'package:pool_app/widgets/turn_tile.dart';
 
@@ -31,13 +30,15 @@ class _TurnListState extends State<TurnList> {
 
   List<Turn> _filterTurni(List<Turn> turni) {
     return turni.where((turno) {
-      final date = turno.start;
-      return date.month == _selectedDate.month &&
-          date.year == _selectedDate.year &&
+      /// usa la data “pura” (senza orario)
+      final shiftDate = turno.date;
+      return shiftDate.month == _selectedDate.month &&
+          shiftDate.year  == _selectedDate.year &&
           (_selectedPiscina == 'Tutte' || turno.poolId == _selectedPiscina) &&
-          (_selectedRole == 'Tutti' || turno.role == _selectedRole);
+          (_selectedRole   == 'Tutti' || turno.role   == _selectedRole);
     }).toList();
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -57,23 +58,25 @@ class _TurnListState extends State<TurnList> {
                       width: 15.0,
                       height: 15.0,
                       child: CircularProgressIndicator(strokeWidth: 2.0),
-                    )
+                    ),
                   ],
                 ),
               );
-            } else if (snapshot.hasError) {
-              return Row(
-                children: [
-                  const Text('Compenso totale:  '),
-                  Text('Errore: ${snapshot.error}'),
-                ],
-              );
-            } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+            } // ...
+            else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
               final filtered = _filterTurni(snapshot.data!);
-              compensoTotale = filteredTotalPay(filtered.map((e) => e.toMap()).toList());
+
+              // ► NUOVO calcolo: somma i totalPay di ogni turno
+              compensoTotale = filtered.fold(0.0, (sum, t) => sum + t.totalPay);
+
               return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 20),
-                child: Text('Compenso totale:  ${compensoTotale.toStringAsFixed(2)}€'),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8.0,
+                  vertical: 20,
+                ),
+                child: Text(
+                  'Compenso totale:  ${compensoTotale.toStringAsFixed(2)}€',
+                ),
               );
             } else {
               return const Padding(
@@ -135,8 +138,12 @@ class _TurnListState extends State<TurnList> {
                     });
                   },
                   editCallback: (turn) async {
-                    widget.onEditRequested(turn);  // esegue la logica di modifica (es: cambia tab)
-                    await Future.delayed(const Duration(milliseconds: 300)); // evita race condition
+                    widget.onEditRequested(
+                      turn,
+                    ); // esegue la logica di modifica (es: cambia tab)
+                    await Future.delayed(
+                      const Duration(milliseconds: 300),
+                    ); // evita race condition
                     setState(() {
                       _turniFuture = fetchTurni(); // forza il refetch
                     });

@@ -40,6 +40,7 @@ class _MainScreenState extends State<MainScreen> {
           break;
         case 1:
           title = 'Aggiungi turni';
+          _turnToEdit = null;          // 👈 svuota lo stato di editing
           break;
         case 2:
           title = 'Account';
@@ -48,6 +49,7 @@ class _MainScreenState extends State<MainScreen> {
       _selectedIndex = index;
     });
   }
+
 
   @override
   Widget build(BuildContext context) {
