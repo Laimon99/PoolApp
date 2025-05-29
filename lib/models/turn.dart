@@ -5,9 +5,9 @@ class Turn {
   final String id;
   final DateTime start;
   final DateTime end;
-  final String role; // istruttore, assistente
-  final String poolId;
-  final double hourlyRate;
+  final String role;           // es.: istruttore, assistente
+  final String poolId;         // piscina
+  final double hourlyRate;     // ► tariffa oraria, **non** il totale!
 
   Turn({
     required this.id,
@@ -18,53 +18,53 @@ class Turn {
     required this.hourlyRate,
   });
 
-  Duration get duration => end.difference(start);
-  String get date => '${start.year}-${start.month.toString().padLeft(2, '0')}-${start.day.toString().padLeft(2, '0')}';
-  double get totalPay => duration.inMinutes / 60.0 * hourlyRate;
+  // --- getter utili ----------------------------------------------------------
+  Duration get duration  => end.difference(start);
+  double   get totalPay  => duration.inMinutes / 60.0 * hourlyRate;
 
+  // --- factory  ↙  dai dati Firebase  ----------------------------------------
   factory Turn.fromJson(String id, Map<String, dynamic> json) {
     return Turn(
-      id: id,
-      start: DateTime.parse(json['start_time']),  // o usa .toDate() se Timestamp
-      end: DateTime.parse(json['end_time']),
-      role: json['role'] ?? '',
-      poolId: json['piscina'] ?? '',
-      hourlyRate: (json['pay'] as num).toDouble(),
+      id        : id,
+      start     : DateTime.parse(json['start_time']),
+      end       : DateTime.parse(json['end_time']),
+      role      : json['role']     ?? '',
+      poolId    : json['piscina']  ?? '',
+      hourlyRate: (json['pay'] as num).toDouble(),    // pay = € / ora
     );
   }
 
-
+  // ► usato da filteredTotalPay()
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
-      'start': start.toIso8601String(),
-      'end': end.toIso8601String(),
-      'role': role,
-      'poolId': poolId,
-      'hourlyRate': hourlyRate,
+      'start_time': start.toIso8601String(),
+      'end_time'  : end.toIso8601String(),
+      'role'      : role,
+      'piscina'   : poolId,
+      'pay'       : hourlyRate,          // <-- tariffa oraria (non totale)
     };
   }
 
   factory Turn.fromMap(Map<String, dynamic> map) {
     return Turn(
-      id: map['turni_id'] ?? '',
-      start: DateTime.parse(map['start_time']),
-      end: DateTime.parse(map['end_time']),
-      role: map['role'] ?? '',
-      poolId: map['piscina'] ?? '',
+      id        : map['turno_id'] ?? '',
+      start     : DateTime.parse(map['start_time']),
+      end       : DateTime.parse(map['end_time']),
+      role      : map['role']     ?? '',
+      poolId    : map['piscina']  ?? '',
       hourlyRate: (map['pay'] as num).toDouble(),
     );
   }
 
-
+  // ► per salvare / aggiornare su Firestore
   Map<String, dynamic> toJson() {
     return {
-      'start': Timestamp.fromDate(start),
-      'end': Timestamp.fromDate(end),
-      'role': role,
-      'pool_id': poolId,
-      'hourly_rate': hourlyRate,
-      'user_id': FirebaseAuth.instance.currentUser!.uid,
+      'start_time' : start.toIso8601String(),
+      'end_time'   : end.toIso8601String(),
+      'role'       : role,
+      'piscina'    : poolId,
+      'pay'        : hourlyRate,
+      'user_id'    : FirebaseAuth.instance.currentUser!.uid,
     };
   }
 }

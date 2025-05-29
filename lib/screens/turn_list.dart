@@ -134,7 +134,13 @@ class _TurnListState extends State<TurnList> {
                       _turniFuture = fetchTurni();
                     });
                   },
-                  editCallback: widget.onEditRequested, // 👈 aggiunto
+                  editCallback: (turn) async {
+                    widget.onEditRequested(turn);  // esegue la logica di modifica (es: cambia tab)
+                    await Future.delayed(const Duration(milliseconds: 300)); // evita race condition
+                    setState(() {
+                      _turniFuture = fetchTurni(); // forza il refetch
+                    });
+                  },
                 );
               },
             );

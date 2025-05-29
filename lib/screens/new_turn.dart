@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
@@ -10,7 +11,6 @@ import 'dart:developer' as dev;
 
 import '../models/turn.dart';
 
-
 class NewTurn extends StatefulWidget {
   final Turn? turnToEdit;
   const NewTurn({super.key, this.turnToEdit});
@@ -19,7 +19,6 @@ class NewTurn extends StatefulWidget {
   _NewTurnState createState() => _NewTurnState();
 }
 
-
 class _NewTurnState extends State<NewTurn> {
   final _formKey = GlobalKey<FormState>();
 
@@ -27,11 +26,12 @@ class _NewTurnState extends State<NewTurn> {
   DateTime? selectedDate;
   TimeOfDay? selectedStartTime;
   TimeOfDay? selectedEndTime;
+  bool isEditing = false;
   List<String> selectedCertificates = [];
   String? selectedPiscina;
   bool _isRoleSelectorVisible = false;
   bool _isPiscinaSelectorVisible = false;
-
+  Turn? _editingTurn;
   bool showValidationErrors = false;
 
   final certificates = [
@@ -41,11 +41,23 @@ class _NewTurnState extends State<NewTurn> {
     'fitness',
     'sport acqua',
     'neonatale',
-    'accoglienza'
+    'accoglienza',
   ];
 
   List<String> piscine = [];
   List<String> roles = [];
+
+  void _resetForm() {
+    setState(() {
+      selectedRole = null;
+      selectedDate = null;
+      selectedStartTime = null;
+      selectedEndTime = null;
+      selectedPiscina = null;
+      showValidationErrors = false;
+      _editingTurn = null; // 👈 Resetta anche questo!
+    });
+  }
 
   final Map<String, String> _italianDaysOfWeek = {
     'Monday': 'Lunedì',
@@ -71,15 +83,17 @@ class _NewTurnState extends State<NewTurn> {
     super.initState();
     fetchData();
 
-    if (widget.turnToEdit != null) {
-      final start = widget.turnToEdit!.start;
-      final end = widget.turnToEdit!.end;
+    _editingTurn = widget.turnToEdit;
+
+    if (_editingTurn != null) {
+      final start = _editingTurn!.start;
+      final end = _editingTurn!.end;
 
       selectedDate = DateTime(start.year, start.month, start.day);
       selectedStartTime = TimeOfDay(hour: start.hour, minute: start.minute);
       selectedEndTime = TimeOfDay(hour: end.hour, minute: end.minute);
-      selectedRole = widget.turnToEdit!.role;
-      selectedPiscina = widget.turnToEdit!.poolId;
+      selectedRole = _editingTurn!.role;
+      selectedPiscina = _editingTurn!.poolId;
     }
   }
 
@@ -91,7 +105,7 @@ class _NewTurnState extends State<NewTurn> {
 
   bool isLoading = false;
 
-  void _addTurn() {
+  void _submitTurn() async {
     setState(() {
       showValidationErrors = true;
     });
@@ -101,32 +115,73 @@ class _NewTurnState extends State<NewTurn> {
     if (isValid &&
         selectedDate != null &&
         selectedStartTime != null &&
-        selectedEndTime != null) {
-      AddTurn.add(
-        context: context,
-        selectedRole: selectedRole,
-        selectedPiscina: selectedPiscina,
-        selectedDate: selectedDate,
-        selectedStartTime: selectedStartTime,
-        selectedEndTime: selectedEndTime,
-        selectedCertificates: selectedCertificates,
-        setLoading: (bool value) {
-          setState(() {
-            isLoading = value;
-          });
-        },
-        resetForm: () {
-          setState(() {
-            selectedRole = null;
-            selectedDate = null;
-            selectedStartTime = null;
-            selectedEndTime = null;
-            selectedCertificates.clear();
-            selectedPiscina = null;
-            showValidationErrors = false;
-          });
-        },
+        selectedEndTime != null &&
+        selectedRole != null &&
+        selectedPiscina != null) {
+      setState(() => isLoading = true);
+
+      final start = DateTime(
+        selectedDate!.year,
+        selectedDate!.month,
+        selectedDate!.day,
+        selectedStartTime!.hour,
+        selectedStartTime!.minute,
       );
+
+      final end = DateTime(
+        selectedDate!.year,
+        selectedDate!.month,
+        selectedDate!.day,
+        selectedEndTime!.hour,
+        selectedEndTime!.minute,
+      );
+
+      final pay = await _calculateTotalPay();
+      // ➜ 1. calcola la durata in ore
+      final durationHours =
+          end.difference(start).inMinutes / 60.0;
+
+      // ➜ 2. ricava la tariffa oraria
+      final hourlyRate = pay / (durationHours == 0 ? 1 : durationHours);
+
+      final turnoData = {
+        'start_time': start.toIso8601String(),
+        'end_time'  : end.toIso8601String(),
+        'date'      : DateTime(selectedDate!.year, selectedDate!.month, selectedDate!.day)
+            .toIso8601String(),
+        'role'      : selectedRole,
+        'piscina'   : selectedPiscina,
+        'pay'       : hourlyRate,          // 👈  salva la tariffa oraria, NON il totale!
+        'certificates': selectedCertificates,
+        'user_id'   : FirebaseAuth.instance.currentUser!.uid,
+      };
+
+      try {
+        if (_editingTurn == null) {
+          // 🔵 CREA NUOVO TURNO
+          await FirebaseFirestore.instance.collection('turni').add(turnoData);
+        } else {
+          // 🟡 MODIFICA ESISTENTE
+          await FirebaseFirestore.instance
+              .collection('turni')
+              .doc(widget.turnToEdit!.id)
+              .update(turnoData);
+        }
+        if (widget.turnToEdit == null) {
+          _resetForm(); // ✅ reset dei campi
+        } else {
+          // ✅ stai modificando → torna alla tab "Elenco turni"
+          final mainScreenState = context
+              .findAncestorStateOfType<State<StatefulWidget>>();
+          if (mainScreenState != null && mounted) {
+            _resetForm();
+          }
+        }
+      } catch (e) {
+        dev.log('❌ Errore salvataggio turno: $e');
+      } finally {
+        setState(() => isLoading = false);
+      }
     }
   }
 
@@ -173,7 +228,7 @@ class _NewTurnState extends State<NewTurn> {
 
     // Durata turno -------------------------------------------------------------
     final startTime = AddTurn.timeOfDayToDateTime(selectedStartTime!);
-    final endTime   = AddTurn.timeOfDayToDateTime(selectedEndTime!);
+    final endTime = AddTurn.timeOfDayToDateTime(selectedEndTime!);
     final durationInHours = endTime.difference(startTime).inMinutes / 60.0;
 
     //-------------------- DEBUG: cosa arriva fin qui ---------------------------
@@ -183,13 +238,13 @@ class _NewTurnState extends State<NewTurn> {
     //--------------------------------------------------------------------------
 
     // Paghe --------------------------------------------------------------------
-    double finalPay   = 0;    // valore che tornerai
-    double defaultPay = 0;    // basepay
+    double finalPay = 0; // valore che tornerai
+    double defaultPay = 0; // basepay
 
     // 2️⃣ leggi il documento «roles/<selectedRole>»
     final roleSnap = await FirebaseFirestore.instance
         .collection('roles')
-        .doc(selectedRole)          // ← deve esistere!
+        .doc(selectedRole) // ← deve esistere!
         .get();
 
     if (!roleSnap.exists) {
@@ -201,13 +256,13 @@ class _NewTurnState extends State<NewTurn> {
     defaultPay = (data['basepay'] as num).toDouble();
     // --------------------------------------------------------------------
     // 3️⃣ scorri TUTTE le conditions e prendi la tariffa più alta che ti spetta
-    finalPay = defaultPay;   // partiamo dalla basepay
+    finalPay = defaultPay; // partiamo dalla basepay
 
     // 3️⃣ scorri le conditions
     for (final cond in (data['conditions'] as List<dynamic>)) {
       // estrai campi
       final reqCert = (cond['requiredCertificate'] as String).trim();
-      final pay     = (cond['pay'] as num).toDouble();
+      final pay = (cond['pay'] as num).toDouble();
 
       dev.log('🔍 condizione → reqCert=$reqCert  pay=$pay');
 
@@ -227,6 +282,7 @@ class _NewTurnState extends State<NewTurn> {
     dev.log('💰 paga oraria scelta = $finalPay   → Totale = $totale');
     return totale;
   }
+
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
@@ -258,8 +314,9 @@ class _NewTurnState extends State<NewTurn> {
                     Column(
                       children: [
                         Padding(
-                          padding:
-                              EdgeInsets.symmetric(horizontal: screenWidth * 0.02),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: screenWidth * 0.02,
+                          ),
                           child: Form(
                             key: _formKey,
                             child: SingleChildScrollView(
@@ -289,8 +346,8 @@ class _NewTurnState extends State<NewTurn> {
                                                   BorderRadius.circular(12),
                                               boxShadow: [
                                                 BoxShadow(
-                                                  color:
-                                                      Colors.black.withOpacity(0.1),
+                                                  color: Colors.black
+                                                      .withOpacity(0.1),
                                                   blurRadius: 6,
                                                   offset: const Offset(0, 3),
                                                 ),
@@ -302,18 +359,22 @@ class _NewTurnState extends State<NewTurn> {
                                             ),
                                             child: Row(
                                               mainAxisAlignment:
-                                                  MainAxisAlignment.spaceBetween,
+                                                  MainAxisAlignment
+                                                      .spaceBetween,
                                               children: [
                                                 Text(
                                                   selectedPiscina ?? 'Piscina',
                                                   style: TextStyle(
-                                                    fontSize: screenWidth * 0.04,
+                                                    fontSize:
+                                                        screenWidth * 0.04,
                                                     fontWeight: FontWeight.bold,
                                                     color: Colors.black87,
                                                   ),
                                                 ),
-                                                const Icon(Icons.arrow_drop_down,
-                                                    color: Colors.black87),
+                                                const Icon(
+                                                  Icons.arrow_drop_down,
+                                                  color: Colors.black87,
+                                                ),
                                               ],
                                             ),
                                           ),
@@ -337,8 +398,8 @@ class _NewTurnState extends State<NewTurn> {
                                                   BorderRadius.circular(12),
                                               boxShadow: [
                                                 BoxShadow(
-                                                  color:
-                                                      Colors.black.withOpacity(0.1),
+                                                  color: Colors.black
+                                                      .withOpacity(0.1),
                                                   blurRadius: 6,
                                                   offset: const Offset(0, 3),
                                                 ),
@@ -350,18 +411,22 @@ class _NewTurnState extends State<NewTurn> {
                                             ),
                                             child: Row(
                                               mainAxisAlignment:
-                                                  MainAxisAlignment.spaceBetween,
+                                                  MainAxisAlignment
+                                                      .spaceBetween,
                                               children: [
                                                 Text(
                                                   selectedRole ?? 'Ruolo',
                                                   style: TextStyle(
-                                                    fontSize: screenWidth * 0.04,
+                                                    fontSize:
+                                                        screenWidth * 0.04,
                                                     fontWeight: FontWeight.bold,
                                                     color: Colors.black87,
                                                   ),
                                                 ),
-                                                const Icon(Icons.arrow_drop_down,
-                                                    color: Colors.black87),
+                                                const Icon(
+                                                  Icons.arrow_drop_down,
+                                                  color: Colors.black87,
+                                                ),
                                               ],
                                             ),
                                           ),
@@ -381,10 +446,14 @@ class _NewTurnState extends State<NewTurn> {
                                         child: Container(
                                           decoration: BoxDecoration(
                                             color: Colors.white,
-                                            borderRadius: BorderRadius.circular(12),
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
                                             boxShadow: [
                                               BoxShadow(
-                                                color: Colors.black.withOpacity(0.1),
+                                                color: Colors.black.withOpacity(
+                                                  0.1,
+                                                ),
                                                 blurRadius: 6,
                                                 offset: const Offset(0, 3),
                                               ),
@@ -395,7 +464,8 @@ class _NewTurnState extends State<NewTurn> {
                                             vertical: screenHeight * 0.015,
                                           ),
                                           child: Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.spaceBetween,
                                             children: [
                                               Text(
                                                 selectedDate == null
@@ -407,7 +477,10 @@ class _NewTurnState extends State<NewTurn> {
                                                   color: Colors.black87,
                                                 ),
                                               ),
-                                              const Icon(Icons.calendar_today, color: Colors.black87),
+                                              const Icon(
+                                                Icons.calendar_today,
+                                                color: Colors.black87,
+                                              ),
                                             ],
                                           ),
                                         ),
@@ -428,10 +501,12 @@ class _NewTurnState extends State<NewTurn> {
                                             child: Container(
                                               decoration: BoxDecoration(
                                                 color: Colors.white,
-                                                borderRadius: BorderRadius.circular(12),
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
                                                 boxShadow: [
                                                   BoxShadow(
-                                                    color: Colors.black.withOpacity(0.1),
+                                                    color: Colors.black
+                                                        .withOpacity(0.1),
                                                     blurRadius: 6,
                                                     offset: const Offset(0, 3),
                                                   ),
@@ -442,19 +517,26 @@ class _NewTurnState extends State<NewTurn> {
                                                 vertical: screenHeight * 0.015,
                                               ),
                                               child: Row(
-                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment
+                                                        .spaceBetween,
                                                 children: [
                                                   Text(
                                                     selectedStartTime == null
                                                         ? 'Ora Inizio'
                                                         : 'Inizio: ${selectedStartTime!.format(context)}',
                                                     style: TextStyle(
-                                                      fontSize: screenWidth * 0.04,
-                                                      fontWeight: FontWeight.bold,
+                                                      fontSize:
+                                                          screenWidth * 0.04,
+                                                      fontWeight:
+                                                          FontWeight.bold,
                                                       color: Colors.black87,
                                                     ),
                                                   ),
-                                                  const Icon(Icons.access_time, color: Colors.black87),
+                                                  const Icon(
+                                                    Icons.access_time,
+                                                    color: Colors.black87,
+                                                  ),
                                                 ],
                                               ),
                                             ),
@@ -472,10 +554,12 @@ class _NewTurnState extends State<NewTurn> {
                                             child: Container(
                                               decoration: BoxDecoration(
                                                 color: Colors.white,
-                                                borderRadius: BorderRadius.circular(12),
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
                                                 boxShadow: [
                                                   BoxShadow(
-                                                    color: Colors.black.withOpacity(0.1),
+                                                    color: Colors.black
+                                                        .withOpacity(0.1),
                                                     blurRadius: 6,
                                                     offset: const Offset(0, 3),
                                                   ),
@@ -486,19 +570,26 @@ class _NewTurnState extends State<NewTurn> {
                                                 vertical: screenHeight * 0.015,
                                               ),
                                               child: Row(
-                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment
+                                                        .spaceBetween,
                                                 children: [
                                                   Text(
                                                     selectedEndTime == null
                                                         ? 'Ora Fine'
                                                         : 'Fine: ${selectedEndTime!.format(context)}',
                                                     style: TextStyle(
-                                                      fontSize: screenWidth * 0.04,
-                                                      fontWeight: FontWeight.bold,
+                                                      fontSize:
+                                                          screenWidth * 0.04,
+                                                      fontWeight:
+                                                          FontWeight.bold,
                                                       color: Colors.black87,
                                                     ),
                                                   ),
-                                                  const Icon(Icons.access_time, color: Colors.black87),
+                                                  const Icon(
+                                                    Icons.access_time,
+                                                    color: Colors.black87,
+                                                  ),
                                                 ],
                                               ),
                                             ),
@@ -510,8 +601,9 @@ class _NewTurnState extends State<NewTurn> {
                                   SizedBox(height: screenHeight * 0.05),
                                   Center(
                                     child: Padding(
-                                      padding:
-                                          EdgeInsets.only(left: screenWidth * 0.02),
+                                      padding: EdgeInsets.only(
+                                        left: screenWidth * 0.02,
+                                      ),
                                       child: FutureBuilder<double>(
                                         future:
                                             _calculateTotalPay(), // Chiamata al Future
@@ -522,19 +614,22 @@ class _NewTurnState extends State<NewTurn> {
                                             return const CircularProgressIndicator(); // Mostra l'indicatore di caricamento
                                           } else if (snapshot.hasError) {
                                             return Text(
-                                                'Errore: ${snapshot.error}');
+                                              'Errore: ${snapshot.error}',
+                                            );
                                           } else if (snapshot.hasData) {
                                             // Mostra il valore calcolato
                                             return Text(
                                               'Paga Totale: ${snapshot.data!.toStringAsFixed(2)}€',
                                               style: TextStyle(
-                                                  fontSize: screenWidth * 0.045),
+                                                fontSize: screenWidth * 0.045,
+                                              ),
                                             );
                                           } else {
                                             return Text(
                                               'Paga Totale: 0.00€',
                                               style: TextStyle(
-                                                  fontSize: screenWidth * 0.045),
+                                                fontSize: screenWidth * 0.045,
+                                              ),
                                             );
                                           }
                                         },
@@ -550,16 +645,23 @@ class _NewTurnState extends State<NewTurn> {
                                           vertical: screenHeight * 0.02,
                                         ),
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(8),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
                                         ),
-                                        backgroundColor: const Color(0xFF0563EC),
+                                        backgroundColor: const Color(
+                                          0xFF0563EC,
+                                        ),
                                       ),
-                                      onPressed: _addTurn,
+                                      onPressed: _submitTurn,
                                       child: Text(
-                                        'Aggiungi Turno',
+                                        _editingTurn == null
+                                            ? 'Aggiungi Turno'
+                                            : 'Modifica Turno',
                                         style: TextStyle(
-                                            fontSize: screenWidth * 0.045,
-                                            color: Colors.white),
+                                          fontSize: screenWidth * 0.045,
+                                          color: Colors.white,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -582,7 +684,9 @@ class _NewTurnState extends State<NewTurn> {
                             color: Colors.black.withOpacity(0.5),
                             child: Center(
                               child: Card(
-                                margin: EdgeInsets.symmetric(horizontal: screenWidth * 0.1),
+                                margin: EdgeInsets.symmetric(
+                                  horizontal: screenWidth * 0.1,
+                                ),
                                 child: ListView.builder(
                                   shrinkWrap: true,
                                   itemCount: piscine.length,
@@ -590,14 +694,18 @@ class _NewTurnState extends State<NewTurn> {
                                     return ListTile(
                                       title: Text(
                                         piscine[index],
-                                        style: TextStyle(fontSize: screenWidth * 0.045),
+                                        style: TextStyle(
+                                          fontSize: screenWidth * 0.045,
+                                        ),
                                       ),
                                       onTap: () {
                                         setState(() {
                                           selectedPiscina = piscine[index];
                                           _isPiscinaSelectorVisible = false;
                                         });
-                                        dev.log('🏊 Piscina selezionata = $selectedPiscina');
+                                        dev.log(
+                                          '🏊 Piscina selezionata = $selectedPiscina',
+                                        );
                                       },
                                     );
                                   },
@@ -620,7 +728,9 @@ class _NewTurnState extends State<NewTurn> {
                             color: Colors.black.withOpacity(0.5),
                             child: Center(
                               child: Card(
-                                margin: EdgeInsets.symmetric(horizontal: screenWidth * 0.1),
+                                margin: EdgeInsets.symmetric(
+                                  horizontal: screenWidth * 0.1,
+                                ),
                                 child: ListView.builder(
                                   shrinkWrap: true,
                                   itemCount: roles.length,
@@ -632,7 +742,9 @@ class _NewTurnState extends State<NewTurn> {
                                             : roles[index].length <= 2
                                             ? roles[index].toUpperCase()
                                             : '${roles[index][0].toUpperCase()}${roles[index].substring(1).toLowerCase()}',
-                                        style: TextStyle(fontSize: screenWidth * 0.045),
+                                        style: TextStyle(
+                                          fontSize: screenWidth * 0.045,
+                                        ),
                                       ),
                                       onTap: () {
                                         setState(() {
