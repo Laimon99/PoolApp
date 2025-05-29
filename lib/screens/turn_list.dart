@@ -7,7 +7,9 @@ import 'package:pool_app/widget/filter_widgets/filters_drawer.dart';
 import 'package:pool_app/widgets/turn_tile.dart';
 
 class TurnList extends StatefulWidget {
-  const TurnList({super.key});
+  const TurnList({super.key, required this.onEditRequested});
+
+  final void Function(Turn turn) onEditRequested;
 
   @override
   _TurnListState createState() => _TurnListState();
@@ -132,6 +134,7 @@ class _TurnListState extends State<TurnList> {
                       _turniFuture = fetchTurni();
                     });
                   },
+                  editCallback: widget.onEditRequested, // 👈 aggiunto
                 );
               },
             );

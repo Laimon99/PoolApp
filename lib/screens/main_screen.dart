@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pool_app/screens/turn_list.dart';
+import '../models/turn.dart';
 import 'account_data.dart';
 import 'new_turn.dart';
 
@@ -14,11 +15,22 @@ class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
   String title = 'Elenco turni';
 
-  final List<Widget> _sections = [
-    const TurnList(),
-    const NewTurn(),
+  Turn? _turnToEdit;
+
+  List<Widget> get _sections => [
+    TurnList(onEditRequested: _handleEditTurn),
+    NewTurn(turnToEdit: _turnToEdit),
     const AccountData(),
   ];
+
+  void _handleEditTurn(Turn turn) {
+    setState(() {
+      _turnToEdit = turn;
+      _selectedIndex = 1;
+      title = 'Modifica turno';
+    });
+  }
+
 
   void _onItemTapped(int index) {
     setState(() {

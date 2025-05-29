@@ -8,11 +8,13 @@ import '../providers/turn_provider.dart';
 class TurnTile extends ConsumerWidget {
   final Turn turn;
   final VoidCallback onDeleted;
+  final void Function(Turn turn) editCallback;
 
   const TurnTile({
     super.key,
     required this.turn,
     required this.onDeleted,
+    required this.editCallback, // 👈 aggiunto
   });
 
   String _formatDay(DateTime date) {
@@ -35,11 +37,8 @@ class TurnTile extends ConsumerWidget {
     final turnService = ref.read(turnServiceProvider);
 
     Future<void> editTurn() async {
-      await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => NewTurn(turnToEdit: turn),
-        ),
-      );
+      await Future.delayed(Duration.zero); // per sicurezza visiva
+      editCallback(turn);
     }
 
     return Dismissible(
