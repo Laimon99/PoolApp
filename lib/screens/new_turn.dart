@@ -8,13 +8,17 @@ import '../functions/get_piscine.dart';
 import '../functions/get_roles.dart';
 import 'dart:developer' as dev;
 
+import '../models/turn.dart';
+
 
 class NewTurn extends StatefulWidget {
-  const NewTurn({super.key});
+  final Turn? turnToEdit;
+  const NewTurn({super.key, this.turnToEdit});
 
   @override
   _NewTurnState createState() => _NewTurnState();
 }
+
 
 class _NewTurnState extends State<NewTurn> {
   final _formKey = GlobalKey<FormState>();
@@ -66,6 +70,17 @@ class _NewTurnState extends State<NewTurn> {
   void initState() {
     super.initState();
     fetchData();
+
+    if (widget.turnToEdit != null) {
+      final start = widget.turnToEdit!.start;
+      final end = widget.turnToEdit!.end;
+
+      selectedDate = DateTime(start.year, start.month, start.day);
+      selectedStartTime = TimeOfDay(hour: start.hour, minute: start.minute);
+      selectedEndTime = TimeOfDay(hour: end.hour, minute: end.minute);
+      selectedRole = widget.turnToEdit!.role;
+      selectedPiscina = widget.turnToEdit!.poolId;
+    }
   }
 
   String _formatDate(DateTime dateTime) {
@@ -579,10 +594,10 @@ class _NewTurnState extends State<NewTurn> {
                                       ),
                                       onTap: () {
                                         setState(() {
-                                          selectedRole = roles[index];
-                                          _isRoleSelectorVisible = false;
+                                          selectedPiscina = piscine[index];
+                                          _isPiscinaSelectorVisible = false;
                                         });
-                                        dev.log('👆 Ruolo selezionato = $selectedRole');
+                                        dev.log('🏊 Piscina selezionata = $selectedPiscina');
                                       },
                                     );
                                   },

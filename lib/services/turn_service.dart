@@ -1,27 +1,29 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../models/turn.dart';
 
 class TurnService {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-
-  Stream<List<Turn>> watchTurns() {
-    return _db
-        .collection('turni')
-        .where('user_id', isEqualTo: _auth.currentUser!.uid)
-        .orderBy('start', descending: true)
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => Turn.fromJson(doc.id, doc.data()))
-            .toList());
-  }
+  final _turnCollection = FirebaseFirestore.instance.collection('turni');
 
   Future<void> addTurn(Turn turn) async {
-    await _db.collection('turni').add(turn.toJson());
+    await _turnCollection.doc(turn.id).set(turn.toMap());
   }
 
   Future<void> deleteTurn(String id) async {
-    await _db.collection('turni').doc(id).delete();
+    await _turnCollection.doc(id).delete();
+  }
+
+  Future<void> updateTurn(Turn turn) async {
+    await _turnCollection.doc(turn.id).update(turn.toMap());
+  }
+
+  Stream<List<Turn>> watchTurns() {
+    return _turnCollection.snapshots().map((snapshot) {
+      return snapshot.docs.map((doc) => Turn.fromMap(doc.data())).toList();
+    });
+  }
+
+  Future<List<Turn>> fetchAllTurns() async {
+    final snapshot = await _turnCollection.get();
+    return snapshot.docs.map((doc) => Turn.fromMap(doc.data())).toList();
   }
 }
