@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:pool_app/screens/new_turn/new_turn_screen.dart';
 import 'package:pool_app/screens/turn_list.dart';
 import '../models/turn.dart';
 import 'account_data.dart';
-import 'new_turn.dart';
+import 'new_turn/new_turn_form.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -19,7 +20,7 @@ class _MainScreenState extends State<MainScreen> {
 
   List<Widget> get _sections => [
     TurnList(onEditRequested: _handleEditTurn),
-    NewTurn(turnToEdit: _turnToEdit),
+    NewTurnForm(turnToEdit: _turnToEdit),
     const AccountData(),
   ];
 

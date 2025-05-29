@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../models/turn.dart';
-import '../screens/new_turn.dart';
 import '../providers/turn_provider.dart';
 
 class TurnTile extends ConsumerWidget {
