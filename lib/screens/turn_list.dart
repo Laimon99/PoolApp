@@ -1,9 +1,8 @@
-// ✅ FILE: turn_list.dart aggiornato per Turn con fromJson
 import 'package:flutter/material.dart';
-import 'package:pool_app/models/turn.dart';
-import 'package:pool_app/functions/fetch_turni.dart';
-import 'package:pool_app/widget/filter_widgets/filters_drawer.dart';
-import 'package:pool_app/widgets/turn_tile.dart';
+import '../functions/fetch_turni.dart';
+import '../models/turn.dart';
+import '../widget/filter_widgets/filters_drawer.dart';
+import '../widgets/turn_tile.dart';
 
 class TurnList extends StatefulWidget {
   const TurnList({super.key, required this.onEditRequested});
@@ -28,17 +27,18 @@ class _TurnListState extends State<TurnList> {
     _turniFuture = fetchTurni();
   }
 
+  /// Filtro i turni usando _selectedDate, _selectedPiscina e _selectedRole.
+  /// Nota: qui usiamo `turno.date` (che contiene solo la data) per confrontare mese/anno.
   List<Turn> _filterTurni(List<Turn> turni) {
     return turni.where((turno) {
-      /// usa la data “pura” (senza orario)
-      final shiftDate = turno.date;
-      return shiftDate.month == _selectedDate.month &&
-          shiftDate.year  == _selectedDate.year &&
-          (_selectedPiscina == 'Tutte' || turno.poolId == _selectedPiscina) &&
-          (_selectedRole   == 'Tutti' || turno.role   == _selectedRole);
+      final shiftDate = turno.date; // <-- uso turno.date, non turno.start
+      final stessaData = (shiftDate.year == _selectedDate.year) &&
+          (shiftDate.month == _selectedDate.month);
+      final stessaPiscina = _selectedPiscina == 'Tutte' || turno.poolId == _selectedPiscina;
+      final stessoRuolo   = _selectedRole   == 'Tutti' || turno.role   == _selectedRole;
+      return stessaData && stessaPiscina && stessoRuolo;
     }).toList();
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -62,18 +62,14 @@ class _TurnListState extends State<TurnList> {
                   ],
                 ),
               );
-            } // ...
-            else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+            } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
               final filtered = _filterTurni(snapshot.data!);
 
-              // ► NUOVO calcolo: somma i totalPay di ogni turno
+              // ► Calcolo nuovo: sommo i totalPay di ogni turno filtrato
               compensoTotale = filtered.fold(0.0, (sum, t) => sum + t.totalPay);
 
               return Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8.0,
-                  vertical: 20,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 20),
                 child: Text(
                   'Compenso totale:  ${compensoTotale.toStringAsFixed(2)}€',
                 ),
@@ -100,19 +96,19 @@ class _TurnListState extends State<TurnList> {
         onDateSelected: (date) {
           setState(() {
             _selectedDate = date;
-            _turniFuture = fetchTurni();
+            _turniFuture  = fetchTurni();
           });
         },
         onPiscinaSelected: (piscina) {
           setState(() {
             _selectedPiscina = piscina;
-            _turniFuture = fetchTurni();
+            _turniFuture     = fetchTurni();
           });
         },
         onRoleSelected: (role) {
           setState(() {
-            _selectedRole = role;
-            _turniFuture = fetchTurni();
+            _selectedRole  = role;
+            _turniFuture   = fetchTurni();
           });
         },
       ),
@@ -138,14 +134,11 @@ class _TurnListState extends State<TurnList> {
                     });
                   },
                   editCallback: (turn) async {
-                    widget.onEditRequested(
-                      turn,
-                    ); // esegue la logica di modifica (es: cambia tab)
-                    await Future.delayed(
-                      const Duration(milliseconds: 300),
-                    ); // evita race condition
+                    widget.onEditRequested(turn);
+                    // attendo un attimo per evitare race condition
+                    await Future.delayed(const Duration(milliseconds: 300));
                     setState(() {
-                      _turniFuture = fetchTurni(); // forza il refetch
+                      _turniFuture = fetchTurni();
                     });
                   },
                 );

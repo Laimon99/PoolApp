@@ -80,26 +80,92 @@ class _NewTurnFormState extends State<NewTurnForm> {
         return;
       }
     } else if (_singleDate == null) {
+      // Se non è settimanale e non è selezionata alcuna data, esco
+      return;
+    }
+
+    if (_start == null || _end == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Seleziona orario di inizio e fine')),
+      );
+      return;
+    }
+
+    if (_start!.hour > _end!.hour || (_start!.hour == _end!.hour && _start!.minute >= _end!.minute)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('L’orario di inizio deve essere precedente a quello di fine'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
       return;
     }
 
     setState(() => _isLoading = true);
     final dates = _generateDates();
-    for (final d in dates) {
-      await AddTurn.add(
-        context: context,
-        selectedRole: _role,
-        selectedDate: d,
-        selectedStartTime: _start,
-        selectedEndTime: _end,
-        selectedCertificates: _certificates,
-        selectedPiscina: _poolId,
-        setLoading: (v) => setState(() => _isLoading = v),
-        resetForm: () {},
+
+    try {
+      for (final d in dates) {
+        // Costruisco il DateTime completo combinando la data (d) e l’orario selezionato
+        final turnoStart = DateTime(
+          d.year,
+          d.month,
+          d.day,
+          _start!.hour,
+          _start!.minute,
+        );
+        final turnoEnd = DateTime(
+          d.year,
+          d.month,
+          d.day,
+          _end!.hour,
+          _end!.minute,
+        );
+
+        await AddTurn.add(
+          context: context,
+          selectedRole: _role,
+          selectedStartDateTime: turnoStart,
+          selectedEndDateTime: turnoEnd,
+          selectedCertificates: _certificates,
+          selectedPiscina: _poolId,
+          editingTurnId: _isEditing ? widget.turnToEdit!.id : null,
+        );
+      }
+
+      // Resetto il form solo una volta, dopo aver salvato tutti i turni
+      _formKey.currentState!.reset();
+      setState(() {
+        _role = null;
+        _singleDate = null;
+        _weeklyStart = null;
+        _weeklyEnd = null;
+        _selectedWeekdays = [];
+        _start = null;
+        _end = null;
+        _poolId = null;
+        _certificates = [];
+        _isWeekly = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _isWeekly
+                ? 'Turni salvati con successo!'
+                : 'Turno salvato con successo!',
+            style: const TextStyle(color: Colors.white),
+          ),
+          backgroundColor: Colors.green,
+        ),
       );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Errore durante il salvataggio: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
-    if (mounted) setState(() => _isLoading = false);
-    if (!_isEditing) Navigator.pop(context);
   }
 
   @override
@@ -113,6 +179,7 @@ class _NewTurnFormState extends State<NewTurnForm> {
         if (snap.hasError) {
           return Center(child: Text('Errore: ${snap.error}'));
         }
+
         final roles = snap.data![0] as List<String>;
         final pools = snap.data![1] as List<String>;
         final user = snap.data![2] as Map<String, dynamic>;
@@ -144,7 +211,10 @@ class _NewTurnFormState extends State<NewTurnForm> {
                       ),
                       const SizedBox(height: 8),
                       if (!_isWeekly) ...[
-                        DateField(selected: _singleDate, onChanged: (v) => setState(() => _singleDate = v)),
+                        DateField(
+                          selected: _singleDate,
+                          onChanged: (v) => setState(() => _singleDate = v),
+                        ),
                       ] else ...[
                         WeeklyRangePicker(
                           start: _weeklyStart,
@@ -159,7 +229,10 @@ class _NewTurnFormState extends State<NewTurnForm> {
                       TimeRangePicker(
                         start: _start,
                         end: _end,
-                        onChanged: (s,e) => setState(() { _start = s; _end = e; }),
+                        onChanged: (s, e) => setState(() {
+                          _start = s;
+                          _end = e;
+                        }),
                       ),
                       const SizedBox(height: 8),
                       PoolSelector(
@@ -181,8 +254,16 @@ class _NewTurnFormState extends State<NewTurnForm> {
                       ),
                       const SizedBox(height: 24),
                       ElevatedButton.icon(
-                        icon: const Icon(Icons.save, color: Colors.black,),
-                        label: Text(_isEditing ? 'Aggiorna' : (_isWeekly ? 'Salva turni' : 'Salva'), style: TextStyle(color: Colors.black),),
+                        icon: const Icon(
+                          Icons.save,
+                          color: Colors.black,
+                        ),
+                        label: Text(
+                          _isEditing
+                              ? 'Aggiorna'
+                              : (_isWeekly ? 'Salva turni' : 'Salva'),
+                          style: const TextStyle(color: Colors.black),
+                        ),
                         onPressed: _save,
                       ),
                     ],

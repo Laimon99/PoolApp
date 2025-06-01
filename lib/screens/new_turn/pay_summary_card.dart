@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../functions/add_turn.dart';
-import '../../functions/pay.dart';   // ⬅️ importa la tua funzione già esistente
+import '../../functions/pay.dart'; // ⬅️ Assicurati che calculateTotalPay sia qui
 
 class PaySummaryCard extends StatelessWidget {
   final String? role;
@@ -14,15 +13,27 @@ class PaySummaryCard extends StatelessWidget {
     required this.end,
   });
 
+  /// Converte un TimeOfDay su “data di oggi” per poter calcolare una duration.
+  DateTime _timeOfDayToTodayDate(TimeOfDay t) {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day, t.hour, t.minute);
+  }
+
   Future<double> _compute() async {
     if (role == null || start == null || end == null) return 0;
 
-    // Usa direttamente il calcolatore centrale
+    // Converto start/end usando _timeOfDayToTodayDate(...)
+    final startDT = _timeOfDayToTodayDate(start!);
+    final endDT   = _timeOfDayToTodayDate(end!);
+
+    // Se l’orario di inizio non è prima di quello di fine, restituisco 0
+    if (!startDT.isBefore(endDT)) return 0;
+
     return await calculateTotalPay(
-      selectedRole        : role!,
-      selectedCertificates: const [],   // se i brevetti non servono qui
-      selectedStartTime   : AddTurn.timeOfDayToDateTime(start!),
-      selectedEndTime     : AddTurn.timeOfDayToDateTime(end!),
+      selectedRole: role!,
+      selectedCertificates: const [],
+      selectedStartTime: startDT,
+      selectedEndTime: endDT,
     );
   }
 

@@ -13,9 +13,10 @@ class TurnTile extends ConsumerWidget {
     super.key,
     required this.turn,
     required this.onDeleted,
-    required this.editCallback, // 👈 aggiunto
+    required this.editCallback,
   });
 
+  /// Formatta il giorno usando soltanto il campo `date` (che contiene solo anno-mese-giorno).
   String _formatDay(DateTime date) {
     final days = {
       DateTime.monday: 'Lunedì',
@@ -26,9 +27,10 @@ class TurnTile extends ConsumerWidget {
       DateTime.saturday: 'Sabato',
       DateTime.sunday: 'Domenica',
     };
-    return '${days[date.weekday]} ${date.day}';
+    return '${days[date.weekday]} ${date.day}/${date.month}/${date.year}';
   }
 
+  /// Formatta l’orario (hh:mm)
   String _formatTime(DateTime time) => DateFormat.Hm().format(time);
 
   @override
@@ -36,7 +38,8 @@ class TurnTile extends ConsumerWidget {
     final turnService = ref.read(turnServiceProvider);
 
     Future<void> editTurn() async {
-      await Future.delayed(Duration.zero); // per sicurezza visiva
+      // serve solo per far partire la callback in modo "asincrono"
+      await Future.delayed(Duration.zero);
       editCallback(turn);
     }
 
@@ -55,20 +58,19 @@ class TurnTile extends ConsumerWidget {
         child: const Icon(Icons.edit, color: Colors.white),
       ),
       confirmDismiss: (direction) async {
-        print('🧨 Tentativo di eliminare turno con ID: ${turn.id}');
         if (direction == DismissDirection.startToEnd) {
           final confirm = await showDialog<bool>(
             context: context,
-            builder: (context) => AlertDialog(
+            builder: (ctx) => AlertDialog(
               title: const Text("Conferma eliminazione"),
               content: const Text("Sei sicuro di voler eliminare questo turno?"),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.of(context).pop(false),
+                  onPressed: () => Navigator.of(ctx).pop(false),
                   child: const Text("Annulla"),
                 ),
                 TextButton(
-                  onPressed: () => Navigator.of(context).pop(true),
+                  onPressed: () => Navigator.of(ctx).pop(true),
                   child: const Text("Elimina"),
                 ),
               ],
@@ -95,12 +97,12 @@ class TurnTile extends ConsumerWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            // Parte sinistra: giorno, orari, ruolo
+            // Parte sinistra: giorno (da turn.date), orari e ruolo
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _formatDay(turn.start),
+                  _formatDay(turn.date), // <-- uso turn.date anziché turn.start
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 20,

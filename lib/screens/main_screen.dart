@@ -1,6 +1,5 @@
+import 'package:PoolApp/screens/turn_list.dart';
 import 'package:flutter/material.dart';
-import 'package:pool_app/screens/new_turn/new_turn_screen.dart';
-import 'package:pool_app/screens/turn_list.dart';
 import '../models/turn.dart';
 import 'account_data.dart';
 import 'new_turn/new_turn_form.dart';

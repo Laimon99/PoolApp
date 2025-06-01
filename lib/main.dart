@@ -1,11 +1,11 @@
+import 'package:PoolApp/screens/auth.dart';
+import 'package:PoolApp/screens/main_screen.dart';
+import 'package:PoolApp/screens/splash.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pool_app/screens/auth.dart';
-import 'package:pool_app/screens/main_screen.dart';
-import 'package:pool_app/screens/splash.dart';
 import 'firebase_options.dart';
 
 
