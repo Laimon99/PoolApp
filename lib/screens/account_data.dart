@@ -17,11 +17,11 @@ class _AccountDataState extends State<AccountData> {
     try {
       await FirebaseAuth.instance.signOut();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Logout effettuato con successo')),
+        const SnackBar(content: Text('Logout effettuato con successo'), backgroundColor: Colors.green,),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Errore durante il logout: $e')),
+        SnackBar(content: Text('Errore durante il logout: $e'), backgroundColor: Colors.red,),
       );
     }
   }

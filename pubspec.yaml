@@ -10,7 +10,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-
+  flutter_localizations:
+    sdk: flutter
   cupertino_icons: ^1.0.8
   firebase_core: ^3.8.1
   firebase_auth: ^5.3.4
@@ -20,11 +21,10 @@ dependencies:
   image: ^4.4.0
   flutter_launcher_icons: ^0.14.3
   flutter_riverpod: ^2.6.1
-  uuid: ^4.5.1
   calendar_date_picker2: ^2.0.1
-  flutter_localizations:            # ✅ necessario per DatePicker/MaterialLocalizations
-    sdk: flutter
-
+  path_provider: ^2.1.5
+  pdf: ^3.11.3
+  printing: ^5.14.2
 dev_dependencies:
   flutter_test:
     sdk: flutter

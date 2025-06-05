@@ -16,18 +16,18 @@ class TurnTile extends ConsumerWidget {
     required this.editCallback,
   });
 
-  /// Formatta il giorno usando soltanto il campo `date` (che contiene solo anno-mese-giorno).
+  /// Formatta il giorno usando soltanto weekday + giorno del campo `date`.
   String _formatDay(DateTime date) {
     final days = {
-      DateTime.monday: 'Lunedì',
-      DateTime.tuesday: 'Martedì',
+      DateTime.monday:    'Lunedì',
+      DateTime.tuesday:   'Martedì',
       DateTime.wednesday: 'Mercoledì',
-      DateTime.thursday: 'Giovedì',
-      DateTime.friday: 'Venerdì',
-      DateTime.saturday: 'Sabato',
-      DateTime.sunday: 'Domenica',
+      DateTime.thursday:  'Giovedì',
+      DateTime.friday:    'Venerdì',
+      DateTime.saturday:  'Sabato',
+      DateTime.sunday:    'Domenica',
     };
-    return '${days[date.weekday]} ${date.day}/${date.month}/${date.year}';
+    return '${days[date.weekday]} ${date.day}';
   }
 
   /// Formatta l’orario (hh:mm)
@@ -63,7 +63,8 @@ class TurnTile extends ConsumerWidget {
             context: context,
             builder: (ctx) => AlertDialog(
               title: const Text("Conferma eliminazione"),
-              content: const Text("Sei sicuro di voler eliminare questo turno?"),
+              content: const Text(
+                  "Sei sicuro di voler eliminare questo turno?"),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(ctx).pop(false),
@@ -102,7 +103,7 @@ class TurnTile extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _formatDay(turn.date), // <-- uso turn.date anziché turn.start
+                  _formatDay(turn.date), // <-- uso solo weekday + day
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 20,

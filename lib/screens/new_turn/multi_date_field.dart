@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:calendar_date_picker2/calendar_date_picker2.dart';
-
 class MultiDateField extends StatelessWidget {
   final List<DateTime?> selected;
   final ValueChanged<List<DateTime?>> onChanged;

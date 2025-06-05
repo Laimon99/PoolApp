@@ -4,139 +4,113 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 class AddTurn {
-  // Controlla se due intervalli [startA,endA] e [startB,endB] si sovrappongono
-  static bool overlaps(DateTime startA, DateTime endA, DateTime startB, DateTime endB) {
+  // Funzione per convertire un TimeOfDay in un oggetto DateTime
+  static DateTime timeOfDayToDateTime(TimeOfDay time) {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day, time.hour, time.minute);
+  }
+
+  // Funzione per controllare sovrapposizioni tra due intervalli temporali
+  static bool overlaps(
+    DateTime startA,
+    DateTime endA,
+    DateTime startB,
+    DateTime endB,
+  ) {
     return startA.isBefore(endB) && endA.isAfter(startB);
   }
 
-  /// Aggiunge o aggiorna un turno su Firestore, verificando:
-  /// 1) che tutti i campi obbligatori non siano nulli;
-  /// 2) che l’orario di inizio sia precedente a quello di fine;
-  /// 3) che non ci siano altri turni salvati nella stessa data (campo "date")
-  ///    con orari che si sovrappongono.
-  /// Se si sta modificando un turno esistente, va passato [editingTurnId] per
-  /// escludere il documento corrente dal controllo di sovrapposizione.
+  // Funzione per aggiungere un turno
   static Future<void> add({
     required BuildContext context,
     required String? selectedRole,
-    required DateTime? selectedStartDateTime,  // DateTime completo (data+ora inizio)
-    required DateTime? selectedEndDateTime,    // DateTime completo (data+ora fine)
+    required DateTime? selectedDate,
+    required TimeOfDay? selectedStartTime,
+    required TimeOfDay? selectedEndTime,
     required List<String> selectedCertificates,
     required String? selectedPiscina,
-    String? editingTurnId,  // opzionale: ID del documento da escludere (in modifica)
   }) async {
-    // 1) Validazione di base
     if (selectedRole == null ||
-        selectedStartDateTime == null ||
-        selectedEndDateTime == null ||
+        selectedDate == null ||
+        selectedStartTime == null ||
+        selectedEndTime == null ||
         selectedPiscina == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Completa tutti i campi!'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
-      return;
-    }
-
-    // 2) Verifica orario
-    if (!selectedStartDateTime.isBefore(selectedEndDateTime)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('L’orario di inizio deve essere precedente a quello di fine!'),
-          backgroundColor: Colors.redAccent,
+          backgroundColor: Colors.green,
         ),
       );
       return;
     }
 
     try {
-      // 3) Recupera utente loggato
+      // Recupera l'utente loggato
       User? user = FirebaseAuth.instance.currentUser;
       if (user == null) throw 'Utente non loggato!';
 
-      // 4) Costruisco la “chiave data” (solo anno-mese-giorno, ora=00:00)
-      final dateKey = DateTime(
-        selectedStartDateTime.year,
-        selectedStartDateTime.month,
-        selectedStartDateTime.day,
-      ).toIso8601String();
-      // es. "2025-06-15T00:00:00.000Z"
-
-      // 5) Recupero tutti i turni di QUESTO utente per quella data
-      final querySnapshot = await FirebaseFirestore.instance
+      // Recupera i turni esistenti per l'utente nella stessa data
+      final query = await FirebaseFirestore.instance
           .collection('turni')
           .where('user_id', isEqualTo: user.uid)
-          .where('date', isEqualTo: dateKey)
+          .where('date', isEqualTo: selectedDate.toIso8601String())
           .get();
 
-      // 6) Controllo sovrapposizione
-      for (var doc in querySnapshot.docs) {
-        // Se sto in fase di modifica, escludo il documento corrente
-        if (editingTurnId != null && doc.id == editingTurnId) {
-          continue;
-        }
+      final newStartTime = timeOfDayToDateTime(selectedStartTime);
+      final newEndTime = timeOfDayToDateTime(selectedEndTime);
 
-        final storedStart = doc.data()['start_time'];
-        final storedEnd   = doc.data()['end_time'];
+      if (newStartTime.isAfter(newEndTime)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'L\'orario di inizio deve essere prima dell\'orario di fine!',
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
 
-        // Se in Firestore mancano questi campi, salto il doc
-        if (storedStart == null || storedEnd == null) {
-          continue;
-        }
-
-        DateTime shiftStartTime;
-        DateTime shiftEndTime;
-        try {
-          shiftStartTime = DateTime.parse(storedStart as String);
-          shiftEndTime   = DateTime.parse(storedEnd as String);
-        } catch (_) {
-          // Se il parsing fallisce, salto quel documento
-          continue;
-        }
-
-        if (overlaps(
-            selectedStartDateTime, selectedEndDateTime, shiftStartTime, shiftEndTime)) {
+      // Controllo sovrapposizione turni
+      for (var doc in query.docs) {
+        final shiftStartTime = DateTime.parse(doc['start_time']);
+        final shiftEndTime = DateTime.parse(doc['end_time']);
+        if (overlaps(newStartTime, newEndTime, shiftStartTime, shiftEndTime)) {
           throw 'Il turno si sovrappone con un altro turno esistente!';
         }
       }
 
-      // 7) Calcolo paga
+      // Calcola la paga totale
       final totalPay = await calculateTotalPay(
         selectedRole: selectedRole,
         selectedCertificates: selectedCertificates,
-        selectedStartTime: selectedStartDateTime,
-        selectedEndTime: selectedEndDateTime,
+        selectedStartTime: newStartTime,
+        selectedEndTime: newEndTime,
       );
 
-      // 8) Preparo i dati da salvare
+      // Crea i dati del turno con la paga finale
       final shiftData = {
         'role': selectedRole,
-        'date': dateKey,                                 // solo anno-mese-giorno
-        'start_time': selectedStartDateTime.toIso8601String(),
-        'end_time': selectedEndDateTime.toIso8601String(),
+        'date': selectedDate.toIso8601String(),
+        'start_time': newStartTime.toIso8601String(),
+        'end_time': newEndTime.toIso8601String(),
         'certificates': selectedCertificates,
         'user_id': user.uid,
         'piscina': selectedPiscina,
         'pay': totalPay,
       };
 
-      // 9) Se sto modificando, aggiorno; altrimenti aggiungo un nuovo documento
-      if (editingTurnId != null) {
-        await FirebaseFirestore.instance
-            .collection('turni')
-            .doc(editingTurnId)
-            .update(shiftData);
-      } else {
-        await FirebaseFirestore.instance.collection('turni').add(shiftData);
-      }
-    } catch (e) {
+      // Salva il turno su Firestore
+      await FirebaseFirestore.instance.collection('turni').add(shiftData);
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Errore durante il salvataggio: $e'),
-          backgroundColor: Colors.redAccent,
-        ),
+        const SnackBar(content: Text('Turno salvato con successo!'), backgroundColor: Colors.green,),
       );
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Errore: $e'), backgroundColor: Colors.red,));
     }
+    // → RIMUOVIAMO il finally con setLoading(false)
   }
 }

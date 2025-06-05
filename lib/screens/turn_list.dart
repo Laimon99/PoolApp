@@ -1,12 +1,14 @@
+// lib/widgets/turn_list.dart
+
 import 'package:flutter/material.dart';
 import '../functions/fetch_turni.dart';
 import '../models/turn.dart';
 import '../widget/filter_widgets/filters_drawer.dart';
 import '../widgets/turn_tile.dart';
+import '../functions/pdf_exporter.dart'; // <- funzioni aggiornate
 
 class TurnList extends StatefulWidget {
   const TurnList({super.key, required this.onEditRequested});
-
   final void Function(Turn turn) onEditRequested;
 
   @override
@@ -27,15 +29,15 @@ class _TurnListState extends State<TurnList> {
     _turniFuture = fetchTurni();
   }
 
-  /// Filtro i turni usando _selectedDate, _selectedPiscina e _selectedRole.
-  /// Nota: qui usiamo `turno.date` (che contiene solo la data) per confrontare mese/anno.
   List<Turn> _filterTurni(List<Turn> turni) {
     return turni.where((turno) {
-      final shiftDate = turno.date; // <-- uso turno.date, non turno.start
+      final shiftDate = turno.date;
       final stessaData = (shiftDate.year == _selectedDate.year) &&
           (shiftDate.month == _selectedDate.month);
-      final stessaPiscina = _selectedPiscina == 'Tutte' || turno.poolId == _selectedPiscina;
-      final stessoRuolo   = _selectedRole   == 'Tutti' || turno.role   == _selectedRole;
+      final stessaPiscina =
+          _selectedPiscina == 'Tutte' || turno.poolId == _selectedPiscina;
+      final stessoRuolo =
+          _selectedRole == 'Tutti' || turno.role == _selectedRole;
       return stessaData && stessaPiscina && stessoRuolo;
     }).toList();
   }
@@ -64,12 +66,10 @@ class _TurnListState extends State<TurnList> {
               );
             } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
               final filtered = _filterTurni(snapshot.data!);
-
-              // ► Calcolo nuovo: sommo i totalPay di ogni turno filtrato
               compensoTotale = filtered.fold(0.0, (sum, t) => sum + t.totalPay);
-
               return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 20),
+                padding:
+                const EdgeInsets.symmetric(horizontal: 8.0, vertical: 20),
                 child: Text(
                   'Compenso totale:  ${compensoTotale.toStringAsFixed(2)}€',
                 ),
@@ -83,7 +83,37 @@ class _TurnListState extends State<TurnList> {
           },
         ),
         actions: [
+          // Pulsante di download PDF
           IconButton(
+            iconSize: 30,
+            icon: const Icon(Icons.download_rounded),
+            tooltip: 'Scarica elenco turni',
+            onPressed: () async {
+              final snapshot = await _turniFuture;
+              final filtered = _filterTurni(snapshot);
+              filtered.sort((a, b) => a.date.compareTo(b.date));
+
+              if (filtered.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Nessun turno da esportare')),
+                );
+                return;
+              }
+
+              // Salva direttamente in /storage/emulated/0/Download
+              final savedPath = await exportTurnsToPdf(filtered);
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text('PDF salvato nei Download'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+              ;
+            },
+          ),
+          IconButton(
+            iconSize: 30,
             icon: const Icon(Icons.filter_alt),
             onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
           ),
@@ -96,19 +126,19 @@ class _TurnListState extends State<TurnList> {
         onDateSelected: (date) {
           setState(() {
             _selectedDate = date;
-            _turniFuture  = fetchTurni();
+            _turniFuture = fetchTurni();
           });
         },
         onPiscinaSelected: (piscina) {
           setState(() {
             _selectedPiscina = piscina;
-            _turniFuture     = fetchTurni();
+            _turniFuture = fetchTurni();
           });
         },
         onRoleSelected: (role) {
           setState(() {
-            _selectedRole  = role;
-            _turniFuture   = fetchTurni();
+            _selectedRole = role;
+            _turniFuture = fetchTurni();
           });
         },
       ),
@@ -121,7 +151,8 @@ class _TurnListState extends State<TurnList> {
             return Center(child: Text('Errore: ${snapshot.error}'));
           } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
             final filtered = _filterTurni(snapshot.data!);
-            filtered.sort((a, b) => a.start.compareTo(b.start));
+            filtered.sort((a, b) => a.date.compareTo(b.date));
+
             return ListView.builder(
               itemCount: filtered.length,
               itemBuilder: (context, index) {
@@ -135,7 +166,6 @@ class _TurnListState extends State<TurnList> {
                   },
                   editCallback: (turn) async {
                     widget.onEditRequested(turn);
-                    // attendo un attimo per evitare race condition
                     await Future.delayed(const Duration(milliseconds: 300));
                     setState(() {
                       _turniFuture = fetchTurni();

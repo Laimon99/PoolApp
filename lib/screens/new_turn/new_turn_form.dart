@@ -80,60 +80,26 @@ class _NewTurnFormState extends State<NewTurnForm> {
         return;
       }
     } else if (_singleDate == null) {
-      // Se non è settimanale e non è selezionata alcuna data, esco
-      return;
-    }
-
-    if (_start == null || _end == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Seleziona orario di inizio e fine')),
-      );
-      return;
-    }
-
-    if (_start!.hour > _end!.hour || (_start!.hour == _end!.hour && _start!.minute >= _end!.minute)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('L’orario di inizio deve essere precedente a quello di fine'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
       return;
     }
 
     setState(() => _isLoading = true);
     final dates = _generateDates();
-
     try {
       for (final d in dates) {
-        // Costruisco il DateTime completo combinando la data (d) e l’orario selezionato
-        final turnoStart = DateTime(
-          d.year,
-          d.month,
-          d.day,
-          _start!.hour,
-          _start!.minute,
-        );
-        final turnoEnd = DateTime(
-          d.year,
-          d.month,
-          d.day,
-          _end!.hour,
-          _end!.minute,
-        );
-
         await AddTurn.add(
           context: context,
           selectedRole: _role,
-          selectedStartDateTime: turnoStart,
-          selectedEndDateTime: turnoEnd,
+          selectedDate: d,
+          selectedStartTime: _start,
+          selectedEndTime: _end,
           selectedCertificates: _certificates,
           selectedPiscina: _poolId,
-          editingTurnId: _isEditing ? widget.turnToEdit!.id : null,
+          // → non passiamo più resetForm qui
         );
       }
 
-      // Resetto il form solo una volta, dopo aver salvato tutti i turni
+      // **RESET FORM UNA VOLTA SOLA**
       _formKey.currentState!.reset();
       setState(() {
         _role = null;
@@ -148,17 +114,6 @@ class _NewTurnFormState extends State<NewTurnForm> {
         _isWeekly = false;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            _isWeekly
-                ? 'Turni salvati con successo!'
-                : 'Turno salvato con successo!',
-            style: const TextStyle(color: Colors.white),
-          ),
-          backgroundColor: Colors.green,
-        ),
-      );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Errore durante il salvataggio: $e')),
