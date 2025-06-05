@@ -50,36 +50,28 @@ class _TurnListState extends State<TurnList> {
         title: FutureBuilder<List<Turn>>(
           future: _turniFuture,
           builder: (context, snapshot) {
+            String label;
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 20),
-                child: Row(
-                  children: [
-                    Text('Compenso totale:  '),
-                    SizedBox(
-                      width: 15.0,
-                      height: 15.0,
-                      child: CircularProgressIndicator(strokeWidth: 2.0),
-                    ),
-                  ],
-                ),
-              );
+              label = 'Compenso totale:  …';
             } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
               final filtered = _filterTurni(snapshot.data!);
               compensoTotale = filtered.fold(0.0, (sum, t) => sum + t.totalPay);
-              return Padding(
-                padding:
-                const EdgeInsets.symmetric(horizontal: 8.0, vertical: 20),
-                child: Text(
-                  'Compenso totale:  ${compensoTotale.toStringAsFixed(2)}€',
-                ),
-              );
+              label = 'Compenso totale: ${compensoTotale.toStringAsFixed(2)}€';
             } else {
-              return const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 20),
-                child: Text('Compenso totale: 0.00€'),
-              );
+              label = 'Compenso totale: 0.00€';
             }
+
+            return Row(
+              children: [
+                Expanded(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(label),
+                  ),
+                ),
+              ],
+            );
           },
         ),
         actions: [
@@ -99,10 +91,6 @@ class _TurnListState extends State<TurnList> {
                 );
                 return;
               }
-
-              // Salva direttamente in /storage/emulated/0/Download
-              final savedPath = await exportTurnsToPdf(filtered);
-
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: const Text('PDF salvato nei Download'),

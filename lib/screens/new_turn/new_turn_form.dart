@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../../screens/new_turn/role_selector.dart';
 import '../../screens/new_turn/date_field.dart';

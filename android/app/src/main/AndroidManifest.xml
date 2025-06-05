@@ -1,8 +1,15 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.example.pool_app">
+
+    <!-- 1) Permessi necessari -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+
     <application
-        android:label="@string/app_name"
-        android:name="${applicationName}"
+        android:label="PoolApp"
         android:icon="@mipmap/ic_launcher">
+
+        <!-- 2) MainActivity: corrisponde a com.example.pool_app.MainActivity -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -12,30 +19,27 @@
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
-            <!-- Specifies an Android theme to apply to this Activity as soon as
-                 the Android process has started. This theme is visible to the user
-                 while the Flutter UI initializes. After che, questo tema continua a
-                 determinare lo sfondo della finestra dietro l’UI Flutter. -->
+
             <meta-data
                 android:name="io.flutter.embedding.android.NormalTheme"
-                android:resource="@style/NormalTheme"
-                />
+                android:resource="@style/NormalTheme" />
+
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        <!-- Non eliminare il meta-data qui sotto.
-             Viene usato dal tool Flutter per generare GeneratedPluginRegistrant.java -->
+
+        <!-- 3) Meta-data Flutter (non rimuovere) -->
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
-    </application>
-    <!-- Necessario per interrogare le activity che possono processare testo, vedi:
-         https://developer.android.com/training/package-visibility e
-         https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
 
-         In particolare, è usato dal Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
+        <!-- 4) NON dichiariamo più il <service> FCM: il plugin firebase_messaging lo registra da solo -->
+
+    </application>
+
+    <!-- 5) Query necessarie per ProcessTextPlugin (lascia così) -->
     <queries>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
