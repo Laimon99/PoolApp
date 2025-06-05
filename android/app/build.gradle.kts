@@ -8,22 +8,20 @@ plugins {
 android {
     namespace = "com.example.pool_app"
 
-    /* ---------- VERSIONI SDK ---------- */
-    compileSdk = flutter.compileSdkVersion        // fornito dal plugin Flutter
-    ndkVersion = "27.0.12077973"                  // NDK richiesto dai plugin Firebase
+    compileSdk = flutter.compileSdkVersion
+    ndkVersion = "27.0.12077973"
 
     defaultConfig {
         applicationId = "com.example.pool_app"
-
-        // Alza la minSdk a 23 (per Firebase) con sintassi Kotlin DSL
         minSdk = 23
         targetSdk = flutter.targetSdkVersion
-
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // ← Corretto per Kotlin DSL:
+        resValue("string", "app_name", "PoolApp")
     }
 
-    /* ---------- OPZIONI JAVA/KOTLIN ---------- */
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
@@ -32,10 +30,8 @@ android {
         jvmTarget = "11"
     }
 
-    /* ---------- BUILD TYPES ---------- */
     buildTypes {
         release {
-            // Per ora firmiamo con la chiave debug (cambia in futuro)
             signingConfig = signingConfigs.getByName("debug")
         }
     }
