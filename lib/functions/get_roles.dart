@@ -5,7 +5,6 @@ Future<List<String>> getRoles() async {
     QuerySnapshot snapshot = await FirebaseFirestore.instance.collection('roles').get();
     return snapshot.docs.map((doc) => doc.id).toList();
   } catch (e) {
-    print('Errore durante il recupero dei ruoli: $e');
     return [];
   }
 }

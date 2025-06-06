@@ -1,22 +1,21 @@
+// lib/main.dart
+
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'firebase_options.dart';
-import 'package:PoolApp/screens/auth.dart';
-import 'package:PoolApp/screens/main_screen.dart';
 import 'package:PoolApp/screens/splash.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+// ================= Background handler per FCM =================
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // Questo gestore è chiamato quando la notifica arriva a app in background o chiusa
+  // Questo gestore viene chiamato su notifiche ricevute quando l’app è in background o chiusa
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  // Puoi loggare qui se vuoi o gestire logicamente il messaggio
-  print('Background message ricevuto: ${message.messageId}');
+  print('Background message ricevuto: \${message.messageId}');
 }
 
 void main() async {
@@ -28,7 +27,7 @@ void main() async {
   // Imposta il gestore per i messaggi in background
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-  runApp(ProviderScope(child: const App()));
+  runApp(const ProviderScope(child: App()));
 }
 
 class App extends StatefulWidget {
@@ -46,24 +45,25 @@ class _AppState extends State<App> {
   }
 
   Future<void> _setupFCM() async {
-    // Chiedi i permessi per le notifiche (Android 13+ e iOS)
+    // 1) Richiedi permessi per le notifiche (Android 13+ e iOS)
     NotificationSettings settings = await FirebaseMessaging.instance.requestPermission(
       alert: true,
       badge: true,
       sound: true,
     );
+
     if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-      // Iscrivi il device al topic "updates"
+      // 2) Iscrivi il device ai topics
       await FirebaseMessaging.instance.subscribeToTopic('updates');
       await FirebaseMessaging.instance.subscribeToTopic('comunicazioni');
-      print('Iscritto al topic "updates"');
+      debugPrint('Iscritto ai topic "updates" e "comunicazioni"');
     } else {
-      print('Permessi notifiche non concessi');
+      debugPrint('Permessi notifiche non concessi');
     }
 
-    // Listener per NOTIFICHE IN FOREGROUND
+    // 3) Listener per notifiche in foreground
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      print('Foreground message ricevuto: ${message.notification?.title}');
+      debugPrint('Foreground message ricevuto: \${message.notification?.title}');
       _showUpdateDialog(
         message.notification?.title ?? 'Aggiornamento disponibile',
         message.notification?.body ?? 'Tocca per aggiornare',
@@ -71,9 +71,9 @@ class _AppState extends State<App> {
       );
     });
 
-    // Listener per NOTIFICHE APRITE DA BACKGROUND/CHIUSA
+    // 4) Listener per notifiche aperte da background/chiusa
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      print('Notifica aperta da background: ${message.notification?.title}');
+      debugPrint('Notifica aperta da background: \${message.notification?.title}');
       final String? url = message.data['download_url'];
       if (url != null) {
         _openUrl(url);
@@ -83,6 +83,7 @@ class _AppState extends State<App> {
 
   void _showUpdateDialog(String title, String body, String? downloadUrl) {
     if (downloadUrl == null) return;
+
     showDialog(
       context: navigatorKey.currentContext!,
       barrierDismissible: false,
@@ -109,7 +110,6 @@ class _AppState extends State<App> {
   }
 
   Future<void> _openUrl(String url) async {
-    // Usa url_launcher per aprire il link nel browser/installatore
     final uri = Uri.parse(url);
     if (await canLaunchUrl(uri)) {
       await launchUrl(
@@ -117,9 +117,8 @@ class _AppState extends State<App> {
         mode: LaunchMode.externalApplication,
       );
     } else {
-      ScaffoldMessenger.of(navigatorKey.currentContext!).showSnackBar(
-        const SnackBar(content: Text('Impossibile aprire il link.')),
-      );
+      ScaffoldMessenger.of(navigatorKey.currentContext!)
+          .showSnackBar(const SnackBar(content: Text('Impossibile aprire il link.')));
     }
   }
 
@@ -138,18 +137,8 @@ class _AppState extends State<App> {
         Locale('it'),
         Locale('en'),
       ],
-      home: StreamBuilder<User?>(
-        stream: FirebaseAuth.instance.authStateChanges(),
-        builder: (ctx, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const SplashScreen();
-          }
-          if (snapshot.hasData) {
-            return const MainScreen();
-          }
-          return const AuthScreen();
-        },
-      ),
+      // Partiamo SEMPRE da SplashScreen: sarà Splash a decidere poi se andare su Auth o Main
+      home: const SplashScreen(),
     );
   }
 }

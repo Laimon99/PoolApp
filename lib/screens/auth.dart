@@ -113,7 +113,7 @@ class _AuthScreenState extends State<AuthScreen> {
                         child: Column(
                           children: [
                             Image.asset(
-                              'assets/images/PA.png',
+                              'assets/images/logo.png',
                               scale: screenWidth / 100,
                             ),
                             SizedBox(height: screenHeight * 0.02),

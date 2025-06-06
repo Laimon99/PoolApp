@@ -1,11 +1,8 @@
-// lib/widgets/turn_list.dart
-
 import 'package:flutter/material.dart';
 import '../functions/fetch_turni.dart';
 import '../models/turn.dart';
 import '../widget/filter_widgets/filters_drawer.dart';
 import '../widgets/turn_tile.dart';
-import '../functions/pdf_exporter.dart'; // <- funzioni aggiornate
 
 class TurnList extends StatefulWidget {
   const TurnList({super.key, required this.onEditRequested});
@@ -52,13 +49,13 @@ class _TurnListState extends State<TurnList> {
           builder: (context, snapshot) {
             String label;
             if (snapshot.connectionState == ConnectionState.waiting) {
-              label = 'Compenso totale:  …';
+              label = 'Totale:  …';
             } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
               final filtered = _filterTurni(snapshot.data!);
               compensoTotale = filtered.fold(0.0, (sum, t) => sum + t.totalPay);
-              label = 'Compenso totale: ${compensoTotale.toStringAsFixed(2)}€';
+              label = 'Totale: ${compensoTotale.toStringAsFixed(2)}€';
             } else {
-              label = 'Compenso totale: 0.00€';
+              label = 'Totale: 0.00€';
             }
 
             return Row(
